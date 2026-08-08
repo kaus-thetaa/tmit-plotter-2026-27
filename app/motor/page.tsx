@@ -1,0 +1,221 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { Header } from "@/components/Header";
+import { GraphGrid, type GraphChannel } from "@/components/GraphGrid";
+import { useSerialPort } from "@/lib/serial/useSerialPort";
+import { useSimulatedFeed } from "@/lib/simulate/useSimulatedFeed";
+import { useMotorStateMachine, MotorState } from "@/lib/motor/stateMachine";
+import { MOTOR_CHANNELS, getChannelStatus } from "@/lib/motor/channelConfig";
+
+const BUFFER_SIZE = 400;
+
+const emptyBuffers = () => ({
+  t: [] as number[],
+  pressure: [] as number[],
+  thrust: [] as number[],
+  temp: [] as number[],
+});
+
+export default function MotorPage() {
+  const buffersRef = useRef(emptyBuffers());
+  const [channels, setChannels] = useState<GraphChannel[]>([]);
+  const [latest, setLatest] = useState<{ pressure: number; thrust: number; temp: number } | null>(
+    null
+  );
+
+  const motor = useMotorStateMachine(20);
+  const startTimeRef = useRef<number | null>(null);
+
+  const pushSample = useCallback(
+    (t: number, pressure: number, thrust: number, temp: number) => {
+      const buf = buffersRef.current;
+      buf.t.push(t);
+      buf.pressure.push(pressure);
+      buf.thrust.push(thrust);
+      buf.temp.push(temp);
+
+      if (buf.t.length > BUFFER_SIZE) {
+        buf.t.shift();
+        buf.pressure.shift();
+        buf.thrust.shift();
+        buf.temp.shift();
+      }
+
+      setLatest({ pressure, thrust, temp });
+      setChannels(
+        MOTOR_CHANNELS.map((c) => ({
+          id: c.id,
+          label: c.label,
+          unit: c.unit,
+          color: c.color,
+          data: [buf.t, buf[c.id]] as [number[], number[]],
+        }))
+      );
+    },
+    []
+  );
+
+  const handleLine = useCallback(
+    (line: string) => {
+      // expected line format: pressure,thrust,temp
+      const parts = line.split(",").map(Number);
+      if (parts.length < 3 || parts.some(Number.isNaN)) return;
+      if (startTimeRef.current === null) startTimeRef.current = performance.now();
+      const t = (performance.now() - startTimeRef.current) / 1000;
+      pushSample(t, parts[0], parts[1], parts[2]);
+    },
+    [pushSample]
+  );
+
+  const { isConnected, isSupported, connect, disconnect } =
+    useSerialPort(handleLine);
+
+  const generateFake = useCallback(
+    (elapsed: number) => {
+      if (motor.state !== MotorState.Burn) {
+        return { pressure: 0, thrust: 0, temp: 20 };
+      }
+      const burnLength = 20;
+      const t = Math.min(elapsed, burnLength);
+      const shape = Math.sin((Math.PI * t) / burnLength);
+      return {
+        pressure: 900 * shape,
+        thrust: 1800 * shape,
+        temp: 20 + 250 * (t / burnLength),
+      };
+    },
+    [motor.state]
+  );
+
+  const { isSimulating, start, stop } = useSimulatedFeed(
+    generateFake,
+    (d) => {
+      const buf = buffersRef.current;
+      const t = buf.t.length ? buf.t[buf.t.length - 1] + 0.1 : 0;
+      pushSample(t, d.pressure, d.thrust, d.temp);
+    },
+    100
+  );
+
+  const handleToggleSimulate = () => {
+    if (isSimulating) {
+      stop();
+    } else {
+      buffersRef.current = emptyBuffers();
+      setChannels([]);
+      setLatest(null);
+      start();
+    }
+  };
+
+  const handleConnect = () => {
+    if (!isSupported) {
+      alert("web serial needs chrome or edge on desktop");
+      return;
+    }
+    startTimeRef.current = null;
+    buffersRef.current = emptyBuffers();
+    setChannels([]);
+    connect({ baudRate: 115200 });
+  };
+
+  const stateColor: Record<MotorState, string> = {
+    [MotorState.Safe]: "text-console-safe",
+    [MotorState.Armed]: "text-console-warn",
+    [MotorState.Burn]: "text-console-critical",
+    [MotorState.Complete]: "text-console-accent",
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header
+        title="Motor Test"
+        isConnected={isConnected}
+        isSimulating={isSimulating}
+        onConnect={handleConnect}
+        onDisconnect={disconnect}
+        onToggleSimulate={handleToggleSimulate}
+      />
+
+      <main className="flex-1 p-6 space-y-6">
+        <div className="panel p-5 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <p className="text-console-muted text-sm">state</p>
+            <p className={`text-2xl font-semibold uppercase ${stateColor[motor.state]}`}>
+              {motor.state}
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={motor.arm}
+              disabled={motor.state !== MotorState.Safe}
+              className="panel px-4 py-2 text-sm hover:border-console-warn disabled:opacity-30"
+            >
+              arm
+            </button>
+            <button
+              onClick={motor.launch}
+              disabled={motor.state !== MotorState.Armed}
+              className="panel px-4 py-2 text-sm hover:border-console-critical disabled:opacity-30"
+            >
+              launch
+            </button>
+            <button
+              onClick={motor.complete}
+              disabled={motor.state !== MotorState.Burn}
+              className="panel px-4 py-2 text-sm hover:border-console-accent disabled:opacity-30"
+            >
+              complete
+            </button>
+            <button
+              onClick={motor.reset}
+              disabled={motor.state !== MotorState.Complete}
+              className="panel px-4 py-2 text-sm hover:border-console-safe disabled:opacity-30"
+            >
+              reset
+            </button>
+            <button
+              onClick={motor.safe}
+              disabled={motor.state === MotorState.Safe}
+              className="panel px-4 py-2 text-sm hover:border-console-safe disabled:opacity-30"
+            >
+              abort to safe
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          {MOTOR_CHANNELS.map((c) => {
+            const value = latest?.[c.id] ?? 0;
+            const status = getChannelStatus(c, value);
+            const statusColor =
+              status === "critical"
+                ? "text-console-critical"
+                : status === "warning"
+                ? "text-console-warn"
+                : "text-console-text";
+            return (
+              <div key={c.id} className="panel p-4">
+                <p className="text-console-muted text-sm">{c.label}</p>
+                <p className={`text-2xl font-semibold ${statusColor}`}>
+                  {latest ? value.toFixed(1) : "--"}{" "}
+                  <span className="text-console-muted text-base">{c.unit}</span>
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {channels.length > 0 ? (
+          <GraphGrid channels={channels} />
+        ) : (
+          <p className="text-console-muted text-sm">
+            connect the test stand or hit simulate, then arm and launch to see a burn
+          </p>
+        )}
+      </main>
+    </div>
+  );
+}

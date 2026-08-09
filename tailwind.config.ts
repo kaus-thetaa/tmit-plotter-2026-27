@@ -12,15 +12,16 @@ const config: Config = {
     extend: {
       colors: {
         console: {
-          bg: "#0a0d10",
-          panel: "#12171c",
-          border: "#1f2830",
-          text: "#e6edf3",
-          muted: "#7d8b96",
-          accent: "#4fc3f7",
-          warn: "#e8a040",
-          critical: "#ef5350",
-          safe: "#4caf50",
+          bg: "#171717",
+          panel: "#171717",
+          border: "#B3B3B3",
+          text: "#F4F4F4",
+          muted: "#B3B3B3",
+          accent: "#08548A",
+          warn: "#D84A1B",
+          critical: "#FF3B21",
+          safe: "#24787A",
+          armed: "#A36340",
         },
       },
       fontFamily: {

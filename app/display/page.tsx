@@ -6,7 +6,7 @@ import { ChevronUp, ChevronDown, Minus } from "lucide-react";
 import { Header } from "@/components/Header";
 import { AchievementShowcase } from "@/components/AchievementShowcase";
 import { SerialMonitor, type LogLine } from "@/components/SerialMonitor";
-import { Display3DMap } from "@/components/Display3DMap";
+import { TerrainMap } from "@/components/TerrainMap";
 import { MultiAxisChart } from "@/components/MultiAxisChart";
 import { ExpandablePanel } from "@/components/ExpandablePanel";
 import { AltitudeGauge } from "@/components/AltitudeGauge";
@@ -628,7 +628,7 @@ export default function DisplayPage() {
           </ExpandablePanel>
 
           <ExpandablePanel height="220px">
-            <Display3DMap
+            <TerrainMap
               lat={readouts.lat}
               lon={readouts.lon}
               trail={trailRef.current}

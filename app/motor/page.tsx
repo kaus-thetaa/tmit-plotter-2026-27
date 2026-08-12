@@ -3,10 +3,13 @@
 import { useCallback, useRef, useState } from "react";
 import { Header } from "@/components/Header";
 import { GraphGrid, type GraphChannel } from "@/components/GraphGrid";
+import { HoldToLaunchButton } from "@/components/HoldToLaunchButton";
+import { DownloadCsvButton } from "@/components/DownloadCsvButton";
 import { useSerialPort } from "@/lib/serial/useSerialPort";
 import { useSimulatedFeed } from "@/lib/simulate/useSimulatedFeed";
 import { useMotorStateMachine, MotorState } from "@/lib/motor/stateMachine";
 import { MOTOR_CHANNELS, getChannelStatus } from "@/lib/motor/channelConfig";
+import { downloadCsv } from "@/lib/csv/exportCsv";
 
 const BUFFER_SIZE = 400;
 
@@ -26,6 +29,13 @@ export default function MotorPage() {
 
   const motor = useMotorStateMachine(20);
   const startTimeRef = useRef<number | null>(null);
+  const burnStartIndexRef = useRef<number | null>(null);
+  const [summary, setSummary] = useState<{
+    peakThrust: number;
+    peakPressure: number;
+    totalImpulse: number;
+    burnDuration: number;
+  } | null>(null);
 
   const pushSample = useCallback(
     (t: number, pressure: number, thrust: number, temp: number) => {
@@ -105,6 +115,7 @@ export default function MotorPage() {
       buffersRef.current = emptyBuffers();
       setChannels([]);
       setLatest(null);
+      setSummary(null);
       start();
     }
   };
@@ -117,12 +128,51 @@ export default function MotorPage() {
     startTimeRef.current = null;
     buffersRef.current = emptyBuffers();
     setChannels([]);
+    setSummary(null);
     connect({ baudRate: 115200 });
   };
 
+  const handleDownload = () => {
+    const buf = buffersRef.current;
+    downloadCsv(
+      `motor-test-${Date.now()}.csv`,
+      ["time_s", "pressure_psi", "thrust_n", "temp_c"],
+      [buf.t, buf.pressure, buf.thrust, buf.temp]
+    );
+  };
+
+  const handleLaunch = useCallback(() => {
+    burnStartIndexRef.current = buffersRef.current.t.length;
+    setSummary(null);
+    motor.launch();
+  }, [motor]);
+
+  const handleComplete = useCallback(() => {
+    const buf = buffersRef.current;
+    const startIdx = burnStartIndexRef.current ?? 0;
+    const tSlice = buf.t.slice(startIdx);
+    const thrustSlice = buf.thrust.slice(startIdx);
+    const pressureSlice = buf.pressure.slice(startIdx);
+
+    if (tSlice.length > 1) {
+      let impulse = 0;
+      for (let i = 1; i < tSlice.length; i++) {
+        const dt = tSlice[i] - tSlice[i - 1];
+        impulse += ((thrustSlice[i] + thrustSlice[i - 1]) / 2) * dt;
+      }
+      setSummary({
+        peakThrust: Math.max(...thrustSlice),
+        peakPressure: Math.max(...pressureSlice),
+        totalImpulse: impulse,
+        burnDuration: tSlice[tSlice.length - 1] - tSlice[0],
+      });
+    }
+    motor.complete();
+  }, [motor]);
+
   const stateColor: Record<MotorState, string> = {
     [MotorState.Safe]: "text-console-safe",
-    [MotorState.Armed]: "text-console-warn",
+    [MotorState.Armed]: "text-console-armed",
     [MotorState.Burn]: "text-console-critical",
     [MotorState.Complete]: "text-console-accent",
   };
@@ -139,6 +189,13 @@ export default function MotorPage() {
       />
 
       <main className="flex-1 p-6 space-y-6">
+        <div className="flex justify-end">
+          <DownloadCsvButton
+            onClick={handleDownload}
+            disabled={buffersRef.current.t.length === 0}
+          />
+        </div>
+
         <div className="panel p-5 flex items-center justify-between flex-wrap gap-4">
           <div>
             <p className="text-console-muted text-sm">state</p>
@@ -151,19 +208,16 @@ export default function MotorPage() {
             <button
               onClick={motor.arm}
               disabled={motor.state !== MotorState.Safe}
-              className="panel px-4 py-2 text-sm hover:border-console-warn disabled:opacity-30"
+              className="panel px-4 py-2 text-sm hover:border-console-armed disabled:opacity-30"
             >
               arm
             </button>
-            <button
-              onClick={motor.launch}
+            <HoldToLaunchButton
               disabled={motor.state !== MotorState.Armed}
-              className="panel px-4 py-2 text-sm hover:border-console-critical disabled:opacity-30"
-            >
-              launch
-            </button>
+              onConfirm={handleLaunch}
+            />
             <button
-              onClick={motor.complete}
+              onClick={handleComplete}
               disabled={motor.state !== MotorState.Burn}
               className="panel px-4 py-2 text-sm hover:border-console-accent disabled:opacity-30"
             >
@@ -185,6 +239,27 @@ export default function MotorPage() {
             </button>
           </div>
         </div>
+
+        {summary && (
+          <div className="panel p-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-console-muted text-xs">peak thrust</p>
+              <p className="text-xl font-semibold">{summary.peakThrust.toFixed(0)} N</p>
+            </div>
+            <div>
+              <p className="text-console-muted text-xs">peak pressure</p>
+              <p className="text-xl font-semibold">{summary.peakPressure.toFixed(0)} psi</p>
+            </div>
+            <div>
+              <p className="text-console-muted text-xs">total impulse</p>
+              <p className="text-xl font-semibold">{summary.totalImpulse.toFixed(0)} N&middot;s</p>
+            </div>
+            <div>
+              <p className="text-console-muted text-xs">burn duration</p>
+              <p className="text-xl font-semibold">{summary.burnDuration.toFixed(2)} s</p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-4">
           {MOTOR_CHANNELS.map((c) => {

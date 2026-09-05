@@ -5,6 +5,7 @@ import Map, { Marker, Source, Layer, type MapRef } from "react-map-gl/maplibre";
 import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { LoadingGrain } from "./LoadingGrain";
+import { useIsDark } from "@/lib/theme/useIsDark";
 
 type TerrainMapProps = {
   lat: number | null;
@@ -19,14 +20,21 @@ const GROUND_ZOOM = 17;
 const APOGEE_ZOOM = 12;
 const DEFAULT_MAX_ALTITUDE_FT = 29432;
 
-const TERRAIN_STYLE: StyleSpecification = {
+// carto's free no-key basemaps, dark and light variants so the map
+// actually follows the app's own theme toggle instead of always
+// showing the same light osm tiles regardless of theme
+const buildStyle = (isDark: boolean): StyleSpecification => ({
   version: 8,
   sources: {
-    osm: {
+    basemap: {
       type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tiles: [
+        isDark
+          ? "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+          : "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+      ],
       tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
+      attribution: "© CARTO, © OpenStreetMap contributors",
     },
     terrain: {
       type: "raster-dem",
@@ -39,15 +47,24 @@ const TERRAIN_STYLE: StyleSpecification = {
     },
   },
   layers: [
-    { id: "osm", type: "raster", source: "osm" },
-    { id: "hillshade", type: "hillshade", source: "terrain" },
+    { id: "basemap", type: "raster", source: "basemap" },
+    {
+      id: "hillshade",
+      type: "hillshade",
+      source: "terrain",
+      paint: {
+        "hillshade-shadow-color": isDark ? "#0A0A0A" : "#9A9A9A",
+        "hillshade-highlight-color": isDark ? "#B6B6B6" : "#FFFFFF",
+      },
+    },
   ],
   terrain: { source: "terrain", exaggeration: 1.5 },
-};
+});
 
 // tilted globe projection map, spins its own bearing, eases its zoom
-// out as altitude climbs so the reveal feels like an actual liftoff,
-// and draws the trajectory as a colour graded streak, not a flat line
+// out as altitude climbs, and keeps itself correctly sized via its
+// own resize observer so it never gets stuck at a stale size when a
+// sidebar is dragged or a panel is expanded
 export const TerrainMap = ({
   lat,
   lon,
@@ -56,8 +73,10 @@ export const TerrainMap = ({
   maxAltitudeFt = DEFAULT_MAX_ALTITUDE_FT,
 }: TerrainMapProps) => {
   const mapRef = useRef<MapRef>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
   const lastZoomAltRef = useRef<number | null>(null);
+  const isDark = useIsDark();
   const centerLat = lat ?? FALLBACK.lat;
   const centerLon = lon ?? FALLBACK.lon;
 
@@ -70,6 +89,18 @@ export const TerrainMap = ({
     };
     frame = requestAnimationFrame(spin);
     return () => cancelAnimationFrame(frame);
+  }, []);
+
+  // maplibre does not automatically notice a css driven container
+  // resize, this keeps the canvas correctly sized whenever its parent
+  // box changes, whatever caused that change
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      mapRef.current?.getMap()?.resize();
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -98,7 +129,7 @@ export const TerrainMap = ({
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
       {!loaded && (
         <div className="absolute inset-0 z-10">
           <LoadingGrain label="loading terrain" />
@@ -114,41 +145,29 @@ export const TerrainMap = ({
           pitch: 60,
         }}
         projection="globe"
-        mapStyle={TERRAIN_STYLE}
+        mapStyle={buildStyle(isDark)}
         style={{ width: "100%", height: "100%" }}
       >
         {trail.length > 1 && (
-          <Source id="flight-trail" type="geojson" data={trailGeoJson} lineMetrics={true}>
+          <Source id="flight-trail" type="geojson" data={trailGeoJson}>
             <Layer
               id="flight-trail-glow"
               type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
                 "line-color": "#FC3D21",
-                "line-width": 10,
+                "line-width": 11,
                 "line-blur": 6,
-                "line-opacity": 0.25,
+                "line-opacity": 0.35,
               }}
             />
             <Layer
               id="flight-trail-line"
               type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
-                "line-width": 3,
-                "line-gradient": [
-                  "interpolate",
-                  ["linear"],
-                  ["line-progress"],
-                  0,
-                  "#FC3D21",
-                  0.2,
-                  "#D1480F",
-                  0.4,
-                  "#A2673F",
-                  0.65,
-                  "#1D7373",
-                  1,
-                  "#005288",
-                ],
+                "line-color": "#FC3D21",
+                "line-width": 3.5,
               }}
             />
           </Source>

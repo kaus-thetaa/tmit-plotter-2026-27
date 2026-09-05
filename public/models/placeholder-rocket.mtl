@@ -1,0 +1,25 @@
+# placeholder rocket materials, palette matched
+newmtl body
+Kd 0.710 0.710 0.710
+Ka 0.05 0.05 0.05
+Ks 0.15 0.15 0.15
+Ns 20
+
+newmtl nose
+Kd 0.988 0.239 0.129
+Ka 0.05 0.05 0.05
+Ks 0.15 0.15 0.15
+Ns 20
+
+newmtl fin
+Kd 0.102 0.102 0.102
+Ka 0.05 0.05 0.05
+Ks 0.15 0.15 0.15
+Ns 20
+
+newmtl boattail
+Kd 0.635 0.404 0.247
+Ka 0.05 0.05 0.05
+Ks 0.15 0.15 0.15
+Ns 20
+

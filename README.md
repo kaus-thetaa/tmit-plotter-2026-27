@@ -6,12 +6,19 @@ hardware attached, or none at all, and a csv workflow in both directions.
 
 ## Modes
 
-- **Display** — booth demo mode. Live 3D rocket model driven by connected
-  IMU orientation, altitude and GPS readouts, a rotating showcase of
-  ThrustMIT achievements, and a serial monitor for on the spot debugging.
-- **Telemetry** — live flight data console: altitude, velocity, and
-  acceleration charts, a GPS map with a live marker and flight path trail,
-  csv download of the full session.
+- **Display** — booth demo mode. Live accelerometer, gyroscope,
+  magnetometer, and GPS readouts with live charts. Accel and gyro feed a
+  complementary filter that drives the live 3D rocket model in real time.
+  Also has a 3D terrain map, a rotating showcase of ThrustMIT achievements,
+  and a serial monitor for on the spot debugging.
+- **Telemetry** — full flight data console with a real, algorithmically
+  derived flight state (standby/boost/coast/drogue/main/recovery) computed
+  from actual barometric pressure and altitude, not scripted. Nine
+  modular panel groups (flight, accelerometer, gyroscope, magnetometer,
+  environment, GPS with 3D terrain map, radio link, pyro continuity,
+  battery), each independently closable and expandable, plus five named
+  view presets (Overview, Full Engineering, Recovery Focus, IMU
+  Diagnostic, Public Display). CSV download of the full session.
 - **Motor Test** — ground test console with a safe/armed/burn/complete
   state machine, a press and hold safety interlock on launch, declarative
   channel thresholds (pressure, thrust, casing temperature), csv download.
@@ -66,8 +73,8 @@ push it to a `gh-pages` branch.
 
 ## Serial packet formats
 
-- **Display**: `roll,pitch,yaw,altitude,lat,lon`
-- **Telemetry**: `altitude,velocity,acceleration,lat,lon`
+- **Display**: `ax,ay,az,gx,gy,gz,mx,my,mz,lat,lon` (accel in g, gyro in deg/s, mag in uT)
+- **Telemetry**: `altitude,velocity,accel_z,accel_x,accel_y,gyro_x,gyro_y,gyro_z,mag_x,mag_y,mag_z,pressure_hpa,temp_c,gps_alt,sats,fix,rssi,snr,battery_v,drogue_continuity,main_continuity,lat,lon` (23 values)
 - **Motor**: `pressure,thrust,temp`
 
 All comma separated, one line per sample, newline terminated. The

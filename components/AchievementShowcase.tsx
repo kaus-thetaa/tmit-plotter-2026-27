@@ -26,8 +26,8 @@ export const AchievementShowcase = () => {
 
   return (
     <div className="panel p-6 min-h-[140px] flex flex-col justify-center">
-      <p className="text-console-accent text-xs tracking-[0.2em] uppercase mb-2">
-        thrustmit achievements
+      <p className="text-console-accent text-xs tracking-[0.2em] mb-2">
+        thrustMIT achievements
       </p>
       <div
         className={`transition-opacity duration-300 ${
@@ -38,6 +38,16 @@ export const AchievementShowcase = () => {
         <p className="text-console-muted text-sm mt-1">
           {current.description}
         </p>
+        {current.url && (
+          <a
+            href={current.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-console-accent text-xs mt-2 inline-block hover:underline"
+          >
+            read more &rarr;
+          </a>
+        )}
       </div>
       <div className="flex gap-1.5 mt-4">
         {ACHIEVEMENTS.map((_, i) => (

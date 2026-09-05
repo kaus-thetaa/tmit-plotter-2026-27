@@ -24,7 +24,7 @@ export const SerialMonitor = ({ lines, onClear }: SerialMonitorProps) => {
   }, [lines]);
 
   return (
-    <div className="panel p-4 flex flex-col h-[220px]">
+    <div className="flex flex-col h-full p-4">
       <div className="flex items-center justify-between mb-2">
         <p className="text-console-muted text-xs tracking-[0.15em] uppercase">
           serial monitor

@@ -5,11 +5,15 @@ import { Header } from "@/components/Header";
 import { GraphGrid, type GraphChannel } from "@/components/GraphGrid";
 import { HoldToLaunchButton } from "@/components/HoldToLaunchButton";
 import { DownloadCsvButton } from "@/components/DownloadCsvButton";
+import { SerialConsole } from "@/components/SerialConsole";
+import { PTTestPanel } from "@/components/PTTestPanel";
+import type { LogLine } from "@/components/SerialMonitor";
 import { useSerialPort } from "@/lib/serial/useSerialPort";
 import { useSimulatedFeed } from "@/lib/simulate/useSimulatedFeed";
 import { useMotorStateMachine, MotorState } from "@/lib/motor/stateMachine";
 import { MOTOR_CHANNELS, getChannelStatus } from "@/lib/motor/channelConfig";
 import { downloadCsv } from "@/lib/csv/exportCsv";
+import { unwrapLine, type SerialPreset } from "@/lib/serial/protocols";
 
 const BUFFER_SIZE = 400;
 
@@ -36,6 +40,15 @@ export default function MotorPage() {
     totalImpulse: number;
     burnDuration: number;
   } | null>(null);
+  const [log, setLog] = useState<LogLine[]>([]);
+  const [preset, setPreset] = useState<SerialPreset>("direct");
+
+  const appendLog = useCallback((text: string) => {
+    setLog((prev) => {
+      const next = [...prev, { time: new Date().toLocaleTimeString(), text }];
+      return next.length > 200 ? next.slice(next.length - 200) : next;
+    });
+  }, []);
 
   const pushSample = useCallback(
     (t: number, pressure: number, thrust: number, temp: number) => {
@@ -68,17 +81,20 @@ export default function MotorPage() {
 
   const handleLine = useCallback(
     (line: string) => {
+      appendLog(line);
+      const unwrapped = unwrapLine(line, preset);
+      if (!unwrapped) return;
       // expected line format: pressure,thrust,temp
-      const parts = line.split(",").map(Number);
+      const parts = unwrapped.payload.split(",").map(Number);
       if (parts.length < 3 || parts.some(Number.isNaN)) return;
       if (startTimeRef.current === null) startTimeRef.current = performance.now();
       const t = (performance.now() - startTimeRef.current) / 1000;
       pushSample(t, parts[0], parts[1], parts[2]);
     },
-    [pushSample]
+    [pushSample, appendLog, preset]
   );
 
-  const { isConnected, isSupported, connect, disconnect } =
+  const { isConnected, isSupported, connect, disconnect, sendCommand } =
     useSerialPort(handleLine);
 
   const generateFake = useCallback(
@@ -188,6 +204,17 @@ export default function MotorPage() {
         onToggleSimulate={handleToggleSimulate}
       />
 
+      <div className="flex justify-end px-6 pt-2">
+        <SerialConsole
+          modeId="motor"
+          sendCommand={sendCommand}
+          log={log}
+          onClearLog={() => setLog([])}
+          preset={preset}
+          onPresetChange={setPreset}
+        />
+      </div>
+
       <main className="flex-1 p-6 space-y-6">
         <div className="flex justify-end">
           <DownloadCsvButton
@@ -290,6 +317,8 @@ export default function MotorPage() {
             connect the test stand or hit simulate, then arm and launch to see a burn
           </p>
         )}
+
+        <PTTestPanel />
       </main>
     </div>
   );

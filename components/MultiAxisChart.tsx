@@ -4,14 +4,22 @@ import { useEffect, useRef } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 
-export type UPlotChartProps = {
+export type AxisSeries = {
   label: string;
-  unit: string;
   color: string;
-  data: [number[], number[]];
+  data: number[];
 };
 
-export const UPlotChart = ({ label, unit, color, data }: UPlotChartProps) => {
+type MultiAxisChartProps = {
+  title: string;
+  unit: string;
+  t: number[];
+  series: AxisSeries[];
+};
+
+// one uplot chart with three overlaid lines, used for accel gyro and
+// magnetometer so each sensor reads as one clean panel, not nine
+export const MultiAxisChart = ({ title, unit, t, series }: MultiAxisChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
 
@@ -20,31 +28,36 @@ export const UPlotChart = ({ label, unit, color, data }: UPlotChartProps) => {
 
     const options: uPlot.Options = {
       width: containerRef.current.clientWidth,
-      height: 220,
-      title: `${label} (${unit})`,
+      height: 160,
+      title: `${title} (${unit})`,
       scales: { x: { time: false } },
       series: [
         {},
-        {
-          label,
-          stroke: color,
+        ...series.map((s) => ({
+          label: s.label,
+          stroke: s.color,
           width: 2,
           points: { show: false },
-        },
+        })),
       ],
       axes: [
         { stroke: "#B6B6B6", grid: { stroke: "rgba(182,182,182,0.15)" } },
         { stroke: "#B6B6B6", grid: { stroke: "rgba(182,182,182,0.15)" } },
       ],
+      legend: { show: true },
     };
 
-    plotRef.current = new uPlot(options, data, containerRef.current);
+    plotRef.current = new uPlot(
+      options,
+      [t, ...series.map((s) => s.data)],
+      containerRef.current
+    );
 
     const resize = () => {
       if (containerRef.current && plotRef.current) {
         plotRef.current.setSize({
           width: containerRef.current.clientWidth,
-          height: 220,
+          height: 160,
         });
       }
     };
@@ -56,11 +69,11 @@ export const UPlotChart = ({ label, unit, color, data }: UPlotChartProps) => {
       plotRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [label, unit, color]);
+  }, [title, unit]);
 
   useEffect(() => {
-    plotRef.current?.setData(data);
-  }, [data]);
+    plotRef.current?.setData([t, ...series.map((s) => s.data)]);
+  }, [t, series]);
 
-  return <div ref={containerRef} className="panel p-2" />;
+  return <div ref={containerRef} className="w-full h-full p-2" />;
 };

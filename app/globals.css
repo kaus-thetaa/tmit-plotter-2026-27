@@ -2,9 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --c-bg: 26 26 26;
+  --c-panel: 26 26 26;
+  --c-border: 182 182 182;
+  --c-text: 244 244 244;
+  --c-muted: 182 182 182;
+}
+
+.light {
+  --c-bg: 244 244 244;
+  --c-panel: 244 244 244;
+  --c-border: 26 26 26;
+  --c-text: 26 26 26;
+  --c-muted: 90 90 90;
+}
+
 @layer base {
   html {
     color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
   }
 
   body {
@@ -14,7 +34,7 @@
 
 @layer utilities {
   .panel {
-    @apply bg-console-panel border border-console-border rounded-lg;
+    @apply bg-console-panel border border-console-border/25 rounded-lg shadow-lg shadow-black/40;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -23,5 +43,28 @@
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
     @apply bg-console-border rounded-full;
+  }
+}
+
+@keyframes ember-rise {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-160px) scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes phase-pulse {
+  0% {
+    opacity: 0.16;
+  }
+  100% {
+    opacity: 0;
   }
 }

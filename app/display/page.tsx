@@ -16,8 +16,10 @@ import { AmbientGrain } from "@/components/AmbientGrain";
 import { GForceMeter } from "@/components/GForceMeter";
 import { CompassRose } from "@/components/CompassRose";
 import { SignalQuality } from "@/components/SignalQuality";
+import { SerialConsole } from "@/components/SerialConsole";
 import { useSerialPort } from "@/lib/serial/useSerialPort";
 import { useSimulatedFeed } from "@/lib/simulate/useSimulatedFeed";
+import { unwrapLine, type SerialPreset } from "@/lib/serial/protocols";
 import {
   useComplementaryFilter,
   accelOnlyOrientation,
@@ -145,6 +147,7 @@ export default function DisplayPage() {
   const shakeCooldownRef = useRef(0);
   const [hasMoved, setHasMoved] = useState(false);
   const [nowTick, setNowTick] = useState(0);
+  const [serialPreset, setSerialPreset] = useState<SerialPreset>("direct");
 
   const { orientation, update, reset } = useComplementaryFilter();
   const lastLineTimeRef = useRef<number | null>(null);
@@ -223,8 +226,10 @@ export default function DisplayPage() {
   const handleLine = useCallback(
     (line: string) => {
       appendLog(line);
+      const unwrapped = unwrapLine(line, serialPreset);
+      if (!unwrapped) return;
       // accepts 9 values (imu only) or 11 (imu plus gps)
-      const parts = line.split(",").map(Number);
+      const parts = unwrapped.payload.split(",").map(Number);
       if (parts.length < 9 || parts.some(Number.isNaN)) return;
       const [ax, ay, az, gx, gy, gz, mx, my, mz] = parts;
       const lat = parts.length >= 11 ? parts[9] : null;
@@ -270,7 +275,7 @@ export default function DisplayPage() {
         setPulse({ id: pulseIdRef.current, color: "#F4F4F4" });
       }
     },
-    [appendLog, update, pushChartSample, pushTrail, updateTrends, hasMoved]
+    [appendLog, update, pushChartSample, pushTrail, updateTrends, hasMoved, serialPreset]
   );
 
   const handleCalibrate = useCallback(() => {
@@ -282,7 +287,7 @@ export default function DisplayPage() {
     };
   }, [readouts.gyro]);
 
-  const { isConnected, isSupported, connect, disconnect } =
+  const { isConnected, isSupported, connect, disconnect, sendCommand } =
     useSerialPort(handleLine);
 
   const G = 9.8;
@@ -473,6 +478,17 @@ export default function DisplayPage() {
           (e.target as HTMLImageElement).style.display = "none";
         }}
       />
+
+      <div className="flex justify-end px-3 pt-2">
+        <SerialConsole
+          modeId="display"
+          sendCommand={sendCommand}
+          log={log}
+          onClearLog={() => setLog([])}
+          preset={serialPreset}
+          onPresetChange={setSerialPreset}
+        />
+      </div>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-2 p-3">
         <div className="lg:col-span-2 flex flex-col gap-2">

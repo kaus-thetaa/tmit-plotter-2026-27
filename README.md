@@ -64,12 +64,27 @@ npm run dev
 
 ## Deploying to GitHub Pages
 
+Deployment is automated. `.github/workflows/deploy.yml` builds and
+publishes the site to GitHub Pages on every push to `main`.
+
+One-time setup on GitHub:
+1. Push this repo to GitHub.
+2. Go to Settings -> Pages.
+3. Under "Build and deployment", set Source to "GitHub Actions".
+
+That's it — push to `main` and the workflow builds and deploys
+automatically. Check the Actions tab for progress and the deployed
+URL. `next.config.mjs` auto-detects the repo name inside GitHub
+Actions so the site works correctly at the `/repo-name/` subpath
+GitHub Pages serves project sites from; nothing to configure by hand.
+
+To build locally instead:
+
 ```
 npm run build
 ```
 
-Outputs a static site to `/out`. Point GitHub Pages at that folder, or
-push it to a `gh-pages` branch.
+Outputs a static site to `/out`.
 
 ## Serial packet formats
 

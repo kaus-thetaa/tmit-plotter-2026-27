@@ -9,6 +9,7 @@ import * as THREE from "three";
 import type { Quaternion } from "@/lib/imu/useOrientation";
 import type { FlightPhase } from "@/lib/simulate/flightProfile";
 import { LoadingGrain } from "./LoadingGrain";
+import { CanvasErrorBoundary } from "./CanvasErrorBoundary";
 
 type RocketMeshProps = {
   objUrl: string;
@@ -315,34 +316,36 @@ export default function RocketModel({
   };
 
   return (
-    <div className="relative w-full h-full">
-      <LoadingOverlay />
-      <Canvas camera={{ position: [0, 0, 9], fov: 45 }}>
-        <ambientLight intensity={0.55} />
-        <ReactiveLighting phase={phase} />
-        <directionalLight position={[-3, -2, 2]} intensity={0.4} />
-        <GlintLight />
-        <Stars radius={40} depth={30} count={1800} factor={1.8} fade speed={0.4} />
-        <Suspense fallback={null}>
-          <RocketMesh
-            objUrl={objUrl}
-            mtlUrl={mtlUrl}
-            orientation={orientation}
-            phase={phase}
-            rawOrientation={rawOrientation}
+    <CanvasErrorBoundary>
+      <div className="relative w-full h-full">
+        <LoadingOverlay />
+        <Canvas camera={{ position: [0, 0, 9], fov: 45 }}>
+          <ambientLight intensity={0.55} />
+          <ReactiveLighting phase={phase} />
+          <directionalLight position={[-3, -2, 2]} intensity={0.4} />
+          <GlintLight />
+          <Stars radius={40} depth={30} count={1800} factor={1.8} fade speed={0.4} />
+          <Suspense fallback={null}>
+            <RocketMesh
+              objUrl={objUrl}
+              mtlUrl={mtlUrl}
+              orientation={orientation}
+              phase={phase}
+              rawOrientation={rawOrientation}
+            />
+          </Suspense>
+          <ShakyCamera shaking={phase === "boost"} />
+          <OrbitControls
+            enablePan={false}
+            minDistance={5}
+            maxDistance={16}
+            autoRotate={autoRotate}
+            autoRotateSpeed={0.6}
+            onStart={handleStart}
+            onEnd={handleEnd}
           />
-        </Suspense>
-        <ShakyCamera shaking={phase === "boost"} />
-        <OrbitControls
-          enablePan={false}
-          minDistance={5}
-          maxDistance={16}
-          autoRotate={autoRotate}
-          autoRotateSpeed={0.6}
-          onStart={handleStart}
-          onEnd={handleEnd}
-        />
-      </Canvas>
-    </div>
+        </Canvas>
+      </div>
+    </CanvasErrorBoundary>
   );
 }

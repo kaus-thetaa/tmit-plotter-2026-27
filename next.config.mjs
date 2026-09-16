@@ -4,6 +4,7 @@ const repoName = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "";
 
 const nextConfig = {
   output: "export",
+  reactStrictMode: false,
   images: {
     unoptimized: true,
   },

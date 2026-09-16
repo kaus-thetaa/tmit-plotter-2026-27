@@ -5,6 +5,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Line, Grid } from "@react-three/drei";
 import * as THREE from "three";
 import { STATE_META, type DerivedFlightState } from "@/lib/telemetry/flightStateMachine";
+import { CanvasErrorBoundary } from "./CanvasErrorBoundary";
 
 export type PathPoint = {
   lat: number;
@@ -90,20 +91,22 @@ export const Flight3DPath = ({ points }: Flight3DPathProps) => {
   const scale = TARGET_VISUAL_HEIGHT / maxAlt;
 
   return (
-    <Canvas camera={{ position: [22, 14, 22], fov: 45 }}>
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[5, 10, 5]} intensity={0.6} />
-      <Grid
-        args={[60, 60]}
-        cellColor="#B6B6B6"
-        sectionColor="#B6B6B6"
-        fadeDistance={50}
-        infiniteGrid
-        position={[0, 0, 0]}
-      />
-      <PathSegments points={points} scale={scale} />
-      <LiveMarker points={points} scale={scale} />
-      <OrbitControls enablePan minDistance={5} maxDistance={100} />
-    </Canvas>
+    <CanvasErrorBoundary>
+      <Canvas camera={{ position: [22, 14, 22], fov: 45 }}>
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[5, 10, 5]} intensity={0.6} />
+        <Grid
+          args={[60, 60]}
+          cellColor="#B6B6B6"
+          sectionColor="#B6B6B6"
+          fadeDistance={50}
+          infiniteGrid
+          position={[0, 0, 0]}
+        />
+        <PathSegments points={points} scale={scale} />
+        <LiveMarker points={points} scale={scale} />
+        <OrbitControls enablePan minDistance={5} maxDistance={100} />
+      </Canvas>
+    </CanvasErrorBoundary>
   );
 };

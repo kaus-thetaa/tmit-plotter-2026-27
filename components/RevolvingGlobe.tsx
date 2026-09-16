@@ -5,6 +5,7 @@ import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { useProgress } from "@react-three/drei";
 import * as THREE from "three";
 import { LoadingGrain } from "./LoadingGrain";
+import { CanvasErrorBoundary } from "./CanvasErrorBoundary";
 
 // real earth texture, three.js's own example asset, stable public url
 // needs internet at load time, fine for the home page which is the
@@ -53,15 +54,17 @@ const LoadingOverlay = () => {
 
 export default function RevolvingGlobe() {
   return (
-    <div className="relative w-full h-full">
-      <LoadingOverlay />
-      <Canvas camera={{ position: [0, 0, 4.5], fov: 40 }}>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 2, 5]} intensity={1.4} />
-        <Suspense fallback={null}>
-          <Earth />
-        </Suspense>
-      </Canvas>
-    </div>
+    <CanvasErrorBoundary>
+      <div className="relative w-full h-full">
+        <LoadingOverlay />
+        <Canvas camera={{ position: [0, 0, 4.5], fov: 40 }}>
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[5, 2, 5]} intensity={1.4} />
+          <Suspense fallback={null}>
+            <Earth />
+          </Suspense>
+        </Canvas>
+      </div>
+    </CanvasErrorBoundary>
   );
 }
